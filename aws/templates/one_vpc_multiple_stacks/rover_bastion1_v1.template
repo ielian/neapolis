@@ -1,0 +1,249 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation template for rover vpc, appserver part.",
+
+  "Parameters" : {
+
+    "KeyName" : {
+      "Description" : "Name of an existing EC2 KeyPair",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+	 
+    },
+
+    "EnvName" : {
+      "Description" : "Name of the environment",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+	 
+    },
+
+    "InstanceType" : {
+      "Description" : "Bastion EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","m3.xlarge","m3.2xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+    
+    "SSHFrom" : {
+      "Description" : "Lockdown SSH access to bastion",
+      "Type" : "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default" : "0.0.0.0/0",
+      "AllowedPattern" : "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription" : "must be a valid CIDR range of the form x.x.x.x/x."
+    },
+
+    "VpcId" : {
+      "Description" : "Id of vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "PublicSubnet1" : {
+      "Description" : "Id of any public subnet within vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    }
+
+  },
+
+  "Mappings" : {
+    "AMIMap" : {
+      "us-east-1"      : { "Bastion1" : "ami-05355a6c" , "AppServer1" : "ami-a0bbfec9" }
+    },
+
+    "SubnetConfig" : {
+      "VPC"     : { "CIDR" : "10.0.0.0/16" },
+      "Public1"  : { "CIDR" : "10.0.10.0/24" },
+      "Public2"  : { "CIDR" : "10.0.20.0/24" },
+      "Public3"  : { "CIDR" : "10.0.30.0/24" },
+      "Private1"  : { "CIDR" : "10.0.1.0/24" },
+      "Private2"  : { "CIDR" : "10.0.2.0/24" },
+      "Private3"  : { "CIDR" : "10.0.3.0/24" }
+    }
+
+  },
+
+  "Resources" : {
+  
+    "CfnUser" : {
+      "Type" : "AWS::IAM::User",
+      "Properties" : {
+        "Path": "/",
+        "Policies": [{
+          "PolicyName": "user",
+          "PolicyDocument": {"Statement":[{ "Effect" : "Allow", "Action": "*", "Resource" : "*" }]}
+        }]
+      }
+    },
+
+    "CfnKeys" : {
+      "Type" : "AWS::IAM::AccessKey",
+      "Properties" : {
+        "UserName" : {"Ref": "CfnUser"}
+      }
+    },
+
+    "BastionSecurityGroup1" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable access to the Bastion host",
+        "VpcId" : { "Ref" : "VpcId" },
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "CidrIp" : { "Ref" : "SSHFrom" }} ],
+        "SecurityGroupEgress"  : [
+          { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "CidrIp" : { "Fn::FindInMap" : [ "SubnetConfig", "Private1", "CIDR" ] }},
+          { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "CidrIp" : { "Fn::FindInMap" : [ "SubnetConfig", "Private2", "CIDR" ] }},
+          { "IpProtocol" : "tcp", "FromPort" : "22",  "ToPort" : "22",  "CidrIp" : { "Fn::FindInMap" : [ "SubnetConfig", "Private3", "CIDR" ] }},
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"} ]
+      }
+    },
+
+    "BastionHost1": {  
+      "DeletionPolicy" : "Delete",
+      "Type": "AWS::EC2::Instance",
+      "Metadata" : {
+         "AWS::CloudFormation::Authentication": {
+          "default" : {
+            "type": "S3",
+            "accessKeyId" : { "Red" : "CfnKeys" },
+            "secretKey" : { "Fn::GetAtt" : [ "CfnKeys", "SecretAccessKey" ]}
+          }
+        },
+
+        "AWS::CloudFormation::Init" : {
+          "config": {
+            "packages" : {
+            },
+
+           "sources" : {
+            },
+
+            "files" : {
+              "/home/ec2-user/.boto": {
+                "content" : { "Fn::Join" : ["", [
+                  "[Credentials]\n",
+                  "aws_access_key_id = ", { "Ref" : "CfnKeys" }, "\n",
+                  "aws_secret_access_key = ", {"Fn::GetAtt": ["CfnKeys", "SecretAccessKey"]}, "\n"
+                ]]},
+                "mode"  : "000600",
+                "owner" : "ec2-user",
+                "group" : "ec2-user"
+              },
+			  
+              "/home/ec2-user/.s3cfg": {
+                "content": { "Fn::Join": [ "", [
+                  "[default]","\n",
+                  "access_key = ", { "Ref": "CfnKeys"}, "\n", 
+                  "secret_key = ", { "Fn::GetAtt": [ "CfnKeys", "SecretAccessKey" ]}, "\n"
+                 ]]}, 
+                 "mode": "000600",
+                 "owner": "ec2-user",
+                 "group": "ec2-user"
+               },
+			   
+               "/home/ec2-user/bootstrap.py" : {
+                 "source" : "https://s3.amazonaws.com/delivery.com/ec2/bootstrap.py",
+                 "mode"   : "000700",
+                 "owner"  : "ec2-user",
+                 "group"  : "ec2-user"
+               }
+            },
+
+            "services" : {
+              "sysvinit" : {
+                "sendmail" : {
+                  "enabled"       : "false",
+                  "ensureRunning" : "false"
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "Properties": {
+        "KeyName"        : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "AMIMap", { "Ref" : "AWS::Region" }, "Bastion1" ]},
+        "InstanceType"   : { "Ref" : "InstanceType" },
+        "SubnetId" : { "Ref" : "PublicSubnet1" },
+        "SecurityGroupIds" : [{"Ref" : "BastionSecurityGroup1"}],
+        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash -v\n",
+
+          "# Helper function\n",
+          "function sig\n",
+          "{\n",
+          "  /opt/aws/bin/cfn-signal -e $1 -r \"$2\" '", { "Ref" : "WaitHandle" }, "'\n",
+          "  exit $1\n",
+          "}\n",
+
+          "# Initiate cfn-init\n",
+          "/opt/aws/bin/cfn-init --stack=", { "Ref" : "AWS::StackId" }, " --resource=A1LaunchConfig ",
+          " --region=", { "Ref" : "AWS::Region" },
+          " || sig -1 'cfn-init failed.'\n",
+
+          "# Execute the bootstrap script", "\n",
+          "python /home/ec2-user/bootstrap.py ", { "Ref" : "EnvName" },
+          " > /home/ec2-user/bootstrap.log &\n",
+ 
+         "# All is well so signal success\n",
+          "sig 0 'cfn-init completed.'\n"
+
+        ]]}}
+      }
+    },
+
+    "BastionIPAddress1" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::EC2::EIP",
+      "Properties" : {
+        "Domain" : "vpc",
+        "InstanceId" : { "Ref" : "BastionHost1" }
+      }
+    },
+
+    "WaitHandle" : {
+      "Type" : "AWS::CloudFormation::WaitConditionHandle"
+    },
+
+    "WaitCondition" : {
+      "Type" : "AWS::CloudFormation::WaitCondition",
+      "DependsOn" : "BastionHost1",
+      "Properties" : {
+        "Handle" : {"Ref" : "WaitHandle"},
+        "Timeout" : "600"
+      }
+    }
+  },
+  
+  "Outputs" : {
+    "VpcId" : {
+      "Description" : "VpcId of the newly created VPC",
+      "Value" :  { "Ref" : "VpcId" }
+    },
+    "WebsiteURL" : {
+      "Value" : { "Fn::Join" : ["", ["http://", { "Fn::GetAtt" : [ "BastionHost1", "PublicDnsName" ]}]] },
+      "Description" : "URL for the bastion host"
+    }
+  }
+}
+	

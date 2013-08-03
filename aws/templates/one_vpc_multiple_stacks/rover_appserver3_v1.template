@@ -1,0 +1,404 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation template for rover vpc, appserver part.",
+
+  "Parameters" : {
+
+    "KeyName" : {
+      "Description" : "Name of an existing EC2 KeyPair",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "EnvName" : {
+      "Description" : "Name of the environment",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "InstanceType" : {
+      "Description" : "AppServer EC2 instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "t1.micro","m1.small","m1.medium","m1.large","m1.xlarge","m2.xlarge","m2.2xlarge","m2.4xlarge","m3.xlarge","m3.2xlarge","c1.medium","c1.xlarge","cc1.4xlarge","cc2.8xlarge","cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+    
+    "SSHFrom" : {
+      "Description" : "Lockdown SSH access to bastion",
+      "Type" : "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default" : "0.0.0.0/0",
+      "AllowedPattern" : "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription" : "must be a valid CIDR range of the form x.x.x.x/x."
+    },
+
+    "AppServerHttpPort" : {
+      "Description" : "TCP/IP port of the appserver",
+      "Type" : "String",
+      "Default" : "8080"
+    },
+
+    "AppServerHttpsPort" : {
+      "Description" : "TCP/IP port of the appserver",
+      "Type" : "String",
+      "Default" : "8086"
+    },
+
+    "VpcId" : {
+      "Description" : "Id of vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "PublicSubnet1" : {
+      "Description" : "Id of public subnet1 within vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "PublicSubnet2" : {
+      "Description" : "Id of public subnet2 within vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "PublicSubnet3" : {
+      "Description" : "Id of public subnet3 within vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "PrivateSubnet1" : {
+      "Description" : "Id of private subnet1 within vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "PrivateSubnet2" : {
+      "Description" : "Id of private subnet2 within vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    },
+
+    "PrivateSubnet3" : {
+      "Description" : "Id of private subnet3 within vpc",
+      "Type" : "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]*",
+      "ConstraintDescription" : "can contain only alphanumeric characters, spaces, dashes and underscores."
+    }
+  },
+
+  "Mappings" : {
+    "AMIMap" : {
+      "us-east-1"      : { "Bastion1" : "ami-05355a6c" , "AppServer1" : "ami-a0bbfec9" }
+    },
+
+    "SubnetConfig" : {
+      "VPC"     : { "CIDR" : "10.0.0.0/16" },
+      "Public1"  : { "CIDR" : "10.0.10.0/24" },
+      "Public2"  : { "CIDR" : "10.0.20.0/24" },
+      "Public3"  : { "CIDR" : "10.0.30.0/24" },
+      "Private1"  : { "CIDR" : "10.0.1.0/24" },
+      "Private2"  : { "CIDR" : "10.0.2.0/24" },
+      "Private3"  : { "CIDR" : "10.0.3.0/24" }
+    }
+  },
+
+  "Resources" : {
+  
+    "CfnUser" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::IAM::User",
+      "Properties" : {
+        "Path": "/",
+        "Policies": [{
+          "PolicyName": "user",
+          "PolicyDocument": {"Statement":[{ "Effect" : "Allow", "Action": "s3:*", "Resource" : "*" }]}
+        }]
+      }
+    },
+
+    "CfnKeys" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::IAM::AccessKey",
+      "Properties" : {
+        "UserName" : {"Ref": "CfnUser"}
+      }
+    },
+
+    "A3LoadBalancerSecurityGroup" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Public ELB Security Group with HTTP access on port 80 from the internet",
+        "VpcId" : { "Ref" : "VpcId" },
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"} ],
+        "SecurityGroupEgress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"} ]
+      }
+    },
+
+    "A3AppServerSecurityGroup" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Allow access from load balancer and bastion as well as outbound HTTP and HTTPS",
+        "VpcId" : { "Ref" : "VpcId" },
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : { "Ref" : "SSHFrom" } },
+          { "IpProtocol" : "tcp", "FromPort" : { "Ref" : "AppServerHttpPort" }, "ToPort" : { "Ref" : "AppServerHttpPort" }, "SourceSecurityGroupId" : { "Ref" : "A3LoadBalancerSecurityGroup" } },
+          { "IpProtocol" : "tcp", "FromPort" : { "Ref" : "AppServerHttpsPort" }, "ToPort" : { "Ref" : "AppServerHttpsPort" }, "SourceSecurityGroupId" : { "Ref" : "A3LoadBalancerSecurityGroup" } } ],
+        "SecurityGroupEgress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0"},
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0"} ]
+      }
+    },
+
+    "A3LaunchConfig" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata" : {
+         "AWS::CloudFormation::Authentication": {
+          "default" : {
+            "type": "S3",
+            "accessKeyId" : { "Red" : "CfnKeys" },
+            "secretKey" : { "Fn::GetAtt" : [ "CfnKeys", "SecretAccessKey" ]}
+          }
+        },
+
+        "AWS::CloudFormation::Init" : {
+          "config": {
+            "packages" : {
+            },
+
+           "sources" : {
+            },
+
+            "files" : {
+              "/home/ec2-user/.boto": {
+                "content" : { "Fn::Join" : ["", [
+                  "[Credentials]\n",
+                  "aws_access_key_id = ", { "Ref" : "CfnKeys" }, "\n",
+                  "aws_secret_access_key = ", {"Fn::GetAtt": ["CfnKeys", "SecretAccessKey"]}, "\n"
+                ]]},
+                "mode"  : "000600",
+                "owner" : "ec2-user",
+                "group" : "ec2-user"
+              },
+			  
+              "/home/ec2-user/.s3cfg": {
+                "content": { "Fn::Join": [ "", [
+                  "[default]","\n",
+                  "access_key = ", { "Ref": "CfnKeys"}, "\n", 
+                  "secret_key = ", { "Fn::GetAtt": [ "CfnKeys", "SecretAccessKey" ]}, "\n"
+                 ]]}, 
+                 "mode": "000600",
+                 "owner": "ec2-user",
+                 "group": "ec2-user"
+               },
+			   
+               "/home/ec2-user/bootstrap.py" : {
+                 "source" : "https://s3.amazonaws.com/delivery.com/ec2/bootstrap.py",
+                 "mode"   : "000700",
+                 "owner"  : "ec2-user",
+                 "group"  : "ec2-user"
+               }
+            },
+
+            "services" : {
+              "sysvinit" : {
+                "sendmail" : {
+                  "enabled"       : "false",
+                  "ensureRunning" : "false"
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "Properties": {
+        "KeyName"        : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "AMIMap", { "Ref" : "AWS::Region" }, "AppServer1" ]},
+        "InstanceType"   : { "Ref" : "InstanceType" },
+        "SecurityGroups" : [{"Ref" : "A3AppServerSecurityGroup"}],
+        "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash -v\n",
+
+          "# Helper function\n",
+          "function sig\n",
+          "{\n",
+          "  /opt/aws/bin/cfn-signal -e $1 -r \"$2\" '", { "Ref" : "A3WaitHandle" }, "'\n",
+          "  exit $1\n",
+          "}\n",
+
+          "# Initiate cfn-init\n",
+          "/opt/aws/bin/cfn-init --stack=", { "Ref" : "AWS::StackId" }, " --resource=A3LaunchConfig ",
+          " --region=", { "Ref" : "AWS::Region" },
+          " || sig -1 'cfn-init failed.'\n",
+
+          "# Execute the bootstrap script", "\n",
+          "python /home/ec2-user/bootstrap.py ", { "Ref" : "EnvName" },
+          " > /home/ec2-user/bootstrap.log &\n",
+ 
+         "# All is well so signal success\n",
+          "sig 0 'cfn-init completed.'\n"
+
+        ]]}}
+      }
+    },
+
+    "A3ElasticLoadBalancer" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "SecurityGroups" : [ { "Ref" : "A3LoadBalancerSecurityGroup" } ],
+        "Subnets" : [ { "Ref" : "PublicSubnet1" }, { "Ref" : "PublicSubnet2" },{ "Ref" : "PublicSubnet3" }],
+        "Listeners" : [ {
+          "LoadBalancerPort" : "80",
+          "InstancePort" : { "Ref" : "AppServerHttpPort" },
+          "Protocol" : "HTTP" }],
+
+        "HealthCheck" : {
+          "Target" : { "Fn::Join" : [ "", ["HTTP:", { "Ref" : "AppServerHttpPort" }, "/"]]},
+          "HealthyThreshold" : "3",
+          "UnhealthyThreshold" : "5",
+          "Interval" : "30",
+          "Timeout" : "5"
+        }
+      }
+    },
+	
+    "A3AppServerGroup" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones" : { "Fn::GetAZs" :  {"Ref" :  "AWS::Region"} },
+        "LaunchConfigurationName" : { "Ref" : "A3LaunchConfig" },
+        "MinSize" : "1",
+        "MaxSize" : "3",
+        "LoadBalancerNames" : [ { "Ref" : "A3ElasticLoadBalancer" } ],
+        "VPCZoneIdentifier" : [{"Ref" : "PrivateSubnet1"}, {"Ref" : "PrivateSubnet2"}, {"Ref" : "PrivateSubnet3"}]
+      }
+    },
+	
+    "A3WaitHandle" : {
+      "Type" : "AWS::CloudFormation::WaitConditionHandle"
+    },
+
+    "A3WaitCondition" : {
+      "Type" : "AWS::CloudFormation::WaitCondition",
+      "DependsOn" : "A3AppServerGroup",
+      "Properties" : {
+        "Count" : "1",
+        "Handle" : {"Ref" : "A3WaitHandle"},
+        "Timeout" : "600"
+      }
+    },
+  
+    "A3ScaleUpPolicy" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "ChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "A3AppServerGroup" },
+        "Cooldown" : "60",
+        "ScalingAdjustment" : "1"
+      }
+    },
+
+    "A3ScaleDownPolicy" : {
+      "DeletionPolicy" : "Delete",
+      "Type" : "AWS::AutoScaling::ScalingPolicy",
+      "Properties" : {
+        "AdjustmentType" : "ChangeInCapacity",
+        "AutoScalingGroupName" : { "Ref" : "A3AppServerGroup" },
+        "Cooldown" : "60",
+        "ScalingAdjustment" : "-1"
+      }
+    },
+
+    "A3CPUAlarmHigh": {
+      "DeletionPolicy" : "Delete",
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Scale-up if CPU > 90% for 10 minutes",
+        "MetricName": "CPUUtilization",
+        "Namespace": "AWS/EC2",
+        "Statistic": "Average",
+        "Period": "300",
+        "EvaluationPeriods": "2",
+        "Threshold": "90",
+        "AlarmActions": [ { "Ref": "A3ScaleUpPolicy" } ],
+        "Dimensions": [
+          {
+            "Name": "AutoScalingGroupName",
+            "Value": { "Ref": "A3AppServerGroup" }
+          }
+        ],
+        "ComparisonOperator": "GreaterThanThreshold"
+      }
+    },
+
+    "A3CPUAlarmLow": {
+      "DeletionPolicy" : "Delete",
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "AlarmDescription": "Scale-down if CPU < 70% for 10 minutes",
+        "MetricName": "CPUUtilization",
+        "Namespace": "AWS/EC2",
+        "Statistic": "Average",
+        "Period": "300",
+        "EvaluationPeriods": "2",
+        "Threshold": "70",
+        "AlarmActions": [ { "Ref": "A3ScaleDownPolicy" } ],
+        "Dimensions": [
+          {
+            "Name": "AutoScalingGroupName",
+            "Value": { "Ref": "A3AppServerGroup" }
+          }
+        ],
+        "ComparisonOperator": "LessThanThreshold"
+      }
+    }
+  },
+	
+  "Outputs" : {
+    "VpcId" : {
+      "Description" : "VpcId of the newly created VPC",
+      "Value" :  { "Ref" : "VpcId" }
+    }
+  }
+}
