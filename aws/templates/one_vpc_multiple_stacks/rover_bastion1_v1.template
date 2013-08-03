@@ -197,7 +197,7 @@
           "}\n",
 
           "# Initiate cfn-init\n",
-          "/opt/aws/bin/cfn-init --stack=", { "Ref" : "AWS::StackId" }, " --resource=A1LaunchConfig ",
+          "/opt/aws/bin/cfn-init --stack=", { "Ref" : "AWS::StackId" }, " --resource=BastionHost1 ",
           " --region=", { "Ref" : "AWS::Region" },
           " || sig -1 'cfn-init failed.'\n",
 
