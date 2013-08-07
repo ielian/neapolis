@@ -160,8 +160,8 @@
                  "group": "ec2-user"
                },
 			   
-               "/home/ec2-user/bootstrap.py" : {
-                 "source" : "https://s3.amazonaws.com/delivery.com/ec2/bootstrap.py",
+               "/home/ec2-user/bastion-bootstrap.sh" : {
+                 "source" : "https://s3.amazonaws.com/ielian/ec2/bastion-bootstrap.sh",
                  "mode"   : "000700",
                  "owner"  : "ec2-user",
                  "group"  : "ec2-user"
@@ -202,8 +202,7 @@
           " || sig -1 'cfn-init failed.'\n",
 
           "# Execute the bootstrap script", "\n",
-          "python /home/ec2-user/bootstrap.py ", { "Ref" : "EnvName" },
-          " > /home/ec2-user/bootstrap.log &\n",
+          "/home/ec2-user/bastion-bootstrap.sh ", { "Ref" : "EnvName" }, "\n",
  
          "# All is well so signal success\n",
           "sig 0 'cfn-init completed.'\n"

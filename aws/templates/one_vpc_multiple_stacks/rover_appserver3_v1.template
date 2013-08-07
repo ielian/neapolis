@@ -50,7 +50,7 @@
     "AppServerHttpsPort" : {
       "Description" : "TCP/IP port of the appserver",
       "Type" : "String",
-      "Default" : "8086"
+      "Default" : "8443"
     },
 
     "VpcId" : {
@@ -119,7 +119,7 @@
 
   "Mappings" : {
     "AMIMap" : {
-      "us-east-1"      : { "Bastion1" : "ami-05355a6c" , "AppServer1" : "ami-a0bbfec9" }
+      "us-east-1"      : { "Bastion1" : "ami-05355a6c" , "AppServer1" : "ami-00e4a069" }
     },
 
     "SubnetConfig" : {
@@ -203,7 +203,9 @@
             "packages" : {
             },
 
-           "sources" : {
+          "sources" : {
+             "/opt/tomcat/current/webapps" : "https://s3.amazonaws.com/rover.autodesk.com/app/appcast-war.zip",
+             "/opt/rover" : { "Fn::Join" : ["", ["https://s3.amazonaws.com/rover.autodesk.com/env/", { "Ref" : "EnvName" }, "/appcast-properties.zip"]]}
             },
 
             "files" : {
@@ -229,8 +231,8 @@
                  "group": "ec2-user"
                },
 			   
-               "/home/ec2-user/bootstrap.py" : {
-                 "source" : "https://s3.amazonaws.com/delivery.com/ec2/bootstrap.py",
+               "/home/ec2-user/appserver-bootstrap.sh" : {
+                 "source" : "https://s3.amazonaws.com/rover.autodesk.com/ec2/appserver-bootstrap.sh",
                  "mode"   : "000700",
                  "owner"  : "ec2-user",
                  "group"  : "ec2-user"
@@ -270,8 +272,7 @@
           " || sig -1 'cfn-init failed.'\n",
 
           "# Execute the bootstrap script", "\n",
-          "python /home/ec2-user/bootstrap.py ", { "Ref" : "EnvName" },
-          " > /home/ec2-user/bootstrap.log &\n",
+          "/home/ec2-user/appserver-bootstrap.sh ", { "Ref" : "EnvName" }, "\n",
  
          "# All is well so signal success\n",
           "sig 0 'cfn-init completed.'\n"
@@ -308,7 +309,7 @@
         "AvailabilityZones" : { "Fn::GetAZs" :  {"Ref" :  "AWS::Region"} },
         "LaunchConfigurationName" : { "Ref" : "A3LaunchConfig" },
         "MinSize" : "1",
-        "MaxSize" : "3",
+        "MaxSize" : "1",
         "LoadBalancerNames" : [ { "Ref" : "A3ElasticLoadBalancer" } ],
         "VPCZoneIdentifier" : [{"Ref" : "PrivateSubnet1"}, {"Ref" : "PrivateSubnet2"}, {"Ref" : "PrivateSubnet3"}]
       }
@@ -335,7 +336,7 @@
         "AdjustmentType" : "ChangeInCapacity",
         "AutoScalingGroupName" : { "Ref" : "A3AppServerGroup" },
         "Cooldown" : "60",
-        "ScalingAdjustment" : "1"
+        "ScalingAdjustment" : "3"
       }
     },
 
@@ -346,7 +347,7 @@
         "AdjustmentType" : "ChangeInCapacity",
         "AutoScalingGroupName" : { "Ref" : "A3AppServerGroup" },
         "Cooldown" : "60",
-        "ScalingAdjustment" : "-1"
+        "ScalingAdjustment" : "-3"
       }
     },
 

@@ -50,7 +50,7 @@
     "AppServerHttpsPort" : {
       "Description" : "TCP/IP port of the appserver",
       "Type" : "String",
-      "Default" : "8086"
+      "Default" : "8443"
     },
 
     "VpcId" : {
@@ -119,7 +119,7 @@
 
   "Mappings" : {
     "AMIMap" : {
-      "us-east-1"      : { "Bastion1" : "ami-05355a6c" , "AppServer1" : "ami-a0bbfec9" }
+      "us-east-1"      : { "Bastion1" : "ami-05355a6c" , "AppServer1" : "ami-00185f69" }
     },
 
     "SubnetConfig" : {
@@ -203,7 +203,9 @@
             "packages" : {
             },
 
-           "sources" : {
+          "sources" : {
+             "/opt/tomcat/current/webapps" : "https://s3.amazonaws.com/rover.autodesk.com/app/appcast-war.zip",
+             "/opt/rover" : { "Fn::Join" : ["", ["https://s3.amazonaws.com/rover.autodesk.com/env/", { "Ref" : "EnvName" }, "/appcast-properties.zip"]]}
             },
 
             "files" : {
@@ -229,8 +231,8 @@
                  "group": "ec2-user"
                },
 			   
-               "/home/ec2-user/bootstrap.py" : {
-                 "source" : "https://s3.amazonaws.com/delivery.com/ec2/bootstrap.py",
+               "/home/ec2-user/appserver-bootstrap.sh" : {
+                 "source" : "https://s3.amazonaws.com/rover.autodesk.com/ec2/appserver-bootstrap.sh",
                  "mode"   : "000700",
                  "owner"  : "ec2-user",
                  "group"  : "ec2-user"
@@ -265,13 +267,14 @@
           "}\n",
 
           "# Initiate cfn-init\n",
-          "/opt/aws/bin/cfn-init --stack=", { "Ref" : "AWS::StackId" }, " --resource=A1LaunchConfig ",
+          "/opt/aws/bin/cfn-init --stack=", { "Ref" : "AWS::StackId" }, 
+          " --resource=A1LaunchConfig ",
           " --region=", { "Ref" : "AWS::Region" },
           " || sig -1 'cfn-init failed.'\n",
 
           "# Execute the bootstrap script", "\n",
-          "python /home/ec2-user/bootstrap.py ", { "Ref" : "EnvName" },
-          " > /home/ec2-user/bootstrap.log &\n",
+          "/home/ec2-user/appserver-bootstrap.sh ", { "Ref" : "EnvName" },
+          " > appserver-bootstrap.log\n",
  
          "# All is well so signal success\n",
           "sig 0 'cfn-init completed.'\n"

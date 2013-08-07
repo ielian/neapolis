@@ -1,9 +1,9 @@
 Cloudformation templates to create multi-tier multi-zone vpc.
 
-one account can host multiple environments, each environment can have multiple vpc (typically one). Each vpc is divided in multiple stacks:
-1- network including nat servers stack
-2- bastion server stack
-3- appserver autoscale stacks (one for each application component).
+One account can host multiple environments, each environment can have multiple vpc (typically one). Each vpc is divided in multiple stacks:
+- network including nat servers stack
+- bastion server stack
+- appserver autoscale stacks (one for each application component).
 
 To create the stacks do the following:
 - Create stack stg01-vpc1 with file rover-vpc-v1.template (input env name)
