@@ -24,7 +24,7 @@ function start_tomcat
     echo '$CATALINA_HOME does not exist'
     exit
   fi
-  $CATALINA_HOME/bin/startup.sh
+  pushd $CATALINA_HOME/bin;./startup.sh;popd;
 }
 
 parseargs $*
