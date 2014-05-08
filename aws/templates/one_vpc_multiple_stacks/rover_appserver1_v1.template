@@ -204,8 +204,8 @@
             },
 
           "sources" : {
-             "/opt/tomcat/current/webapps" : "https://s3.amazonaws.com/rover.autodesk.com/app/appcast-war.zip",
-             "/opt/rover" : { "Fn::Join" : ["", ["https://s3.amazonaws.com/rover.autodesk.com/env/", { "Ref" : "EnvName" }, "/appcast-properties.zip"]]}
+             "/opt/tomcat/current/webapps" : "https://s3.amazonaws.com/mybucket/app/appcast-war.zip",
+             "/opt/rover" : { "Fn::Join" : ["", ["https://s3.amazonaws.com/mybucket/env/", { "Ref" : "EnvName" }, "/appcast-properties.zip"]]}
             },
 
             "files" : {
@@ -232,7 +232,7 @@
                },
 			   
                "/home/ec2-user/appserver-bootstrap.sh" : {
-                 "source" : "https://s3.amazonaws.com/rover.autodesk.com/ec2/appserver-bootstrap.sh",
+                 "source" : "https://s3.amazonaws.com/mybucket/ec2/appserver-bootstrap.sh",
                  "mode"   : "000700",
                  "owner"  : "ec2-user",
                  "group"  : "ec2-user"
